@@ -91,20 +91,19 @@ else:
     # `initial_columns` is defined in cell `hPWW9cckatVW` and assumed to be available globally.
     data = pd.DataFrame(datos, columns=initial_columns)
 
-st.write("Data to be processed:")
-st.dataframe(data.head())
-
-# Make prediction
+# Now, always process and display the data with prediction
 if not data.empty:
-    prediction_result = make_prediction(data, modelo, min_max_scaler, variables, labelencoder)
-    # The explicit prediction message and warning are removed as requested.
-    # The 'data' DataFrame with prediction column is displayed by another cell.
+    st.subheader("Datos procesados y predicción:")
+    # Make prediction
+    prediction_result = make_prediction(data.copy(), modelo, min_max_scaler, variables, labelencoder)
+    # Add the prediction result as a new column to the DataFrame
+    data['Prediccion'] = prediction_result
+
+    st.dataframe(data) # Display the full data with prediction
 else:
     st.warning("No hay datos válidos para realizar la predicción.")
 
 """# **Predicciones**"""
-
-display(data)
 
 # Re-calculando predicción usando la función `make_prediction` para demostración en el notebook.
 # Esto asume que 'data' es el DataFrame generado por la entrada manual de Streamlit o la carga de archivo.
