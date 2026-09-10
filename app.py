@@ -26,6 +26,37 @@ filename = 'modelo-cla.pkl'
 modelo,labelencoder,variables,min_max_scaler = pickle.load(open(filename, 'rb'))
 #modelo
 
+def make_prediction(input_df, modelo, min_max_scaler, variables, labelencoder):
+    data_preparada = input_df.copy()
+
+    # Convert binary categorical columns ('Yes'/'No') to 0/1
+    for col_name in ['hypertension', 'heart_disease', 'ever_married']:
+        if col_name in data_preparada.columns:
+            data_preparada[f'{col_name}_Yes'] = data_preparada[col_name].apply(lambda x: 1 if x == 'Yes' else 0).astype(int)
+            data_preparada = data_preparada.drop(columns=[col_name])
+
+    # Apply get_dummies for 'smoking_status'
+    if 'smoking_status' in data_preparada.columns:
+        data_preparada = pd.get_dummies(data_preparada, columns=['smoking_status'], drop_first=False, dtype=int)
+
+    # Reindex to ensure all expected 'variables' are present and in order
+    data_preparada = data_preparada.reindex(columns=variables, fill_value=0)
+
+    # Normalize numerical features
+    numerical_features = ['age', 'avg_glucose_level']
+    if not data_preparada.empty and all(feature in data_preparada.columns for feature in numerical_features):
+        data_preparada[numerical_features] = min_max_scaler.transform(data_preparada[numerical_features])
+    else:
+        return "Error en la preparación de datos (faltan características numéricas)"
+
+    # Make prediction
+    if not data_preparada.empty:
+        Y_pred = modelo.predict(data_preparada)
+        # Use labelencoder to inverse_transform the numerical prediction back to original labels
+        return labelencoder.inverse_transform(Y_pred)[0]
+    else:
+        return "No hay datos para realizar la predicción"
+
 # Define expected input columns for a placeholder DataFrame
 initial_columns = ['age', 'avg_glucose_level', 'hypertension', 'heart_disease', 'ever_married', 'smoking_status']
 
@@ -56,59 +87,45 @@ else:
     Casado = st.selectbox('ever_married', ['No', 'Yes'])
     Estado_Fumador = st.selectbox('smoking_status', ["'never smoked'", 'Unknown',"'formerly smoked'","smokes"])
 
-    # Dataframe from sliders
     datos = [[Edad, Nivel_glucosa_promedio, Hipertension, Enfermedad_Cardiaca, Casado, Estado_Fumador]]
+    # `initial_columns` is defined in cell `hPWW9cckatVW` and assumed to be available globally.
     data = pd.DataFrame(datos, columns=initial_columns)
 
 st.write("Data to be processed:")
-st.dataframe(data.head()) # Display the final 'data' DataFrame for confirmation
+st.dataframe(data.head())
 
-#Se realiza la preparación de datos
-data_preparada = data.copy()
-
-# Convert binary categorical columns ('Yes'/'No') to 0/1 and rename to match model's expected features
-for col_name in ['hypertension', 'heart_disease', 'ever_married']:
-    if col_name in data_preparada.columns:
-        data_preparada[f'{col_name}_Yes'] = data_preparada[col_name].apply(lambda x: 1 if x == 'Yes' else 0).astype(int)
-        data_preparada = data_preparada.drop(columns=[col_name])
-
-# Apply get_dummies for 'smoking_status' as it's multi-categorical
-# Based on the 'variables' array, all dummy columns are expected, so drop_first=False.
-if 'smoking_status' in data_preparada.columns:
-    data_preparada = pd.get_dummies(data_preparada, columns=['smoking_status'], drop_first=False, dtype=int)
-
-data_preparada.head()
-
-#Se adicionan las columnas faltantes
-data_preparada=data_preparada.reindex(columns=variables,fill_value=0)
-data_preparada.head()
-
-#Se normaliza la edad y el nivel de glucosa para predecir
-#En los despliegues no se llama fit
-
-numerical_features = ['age', 'avg_glucose_level']
-
-# Ensure data_preparada is not empty and has the numerical columns before scaling
-if not data_preparada.empty and all(feature in data_preparada.columns for feature in numerical_features):
-    data_preparada[numerical_features] = min_max_scaler.transform(data_preparada[numerical_features])
+# Make prediction
+if not data.empty:
+    prediction_result = make_prediction(data, modelo, min_max_scaler, variables, labelencoder)
+    st.subheader(f"Predicción de Riesgo de Ataque al Corazón: **{prediction_result}**")
+    st.warning("El modelo tiene un exito del 81.3% (F1 Macro)")
 else:
-    # This print will be visible in Colab output if the DataFrame is empty
-    print("Warning: data_preparada is empty or missing numerical features for scaling. Skipping normalization.")
-
-data_preparada.head()
+    st.warning("No hay datos válidos para realizar la predicción.")
 
 """# **Predicciones**"""
 
-#Hacemos la predicción con el Tree
-Y_pred = modelo.predict(data_preparada)
-print(Y_pred)
+# Re-calculando predicción usando la función `make_prediction` para demostración en el notebook.
+# Esto asume que 'data' es el DataFrame generado por la entrada manual de Streamlit o la carga de archivo.
+if not data.empty:
+    # Eliminamos la columna 'Prediccion' antigua si existe en el DataFrame 'data'.
+    # La columna 'Prediccion' se añadió en un paso anterior con valores 0/1 y ya no es necesaria.
+    if 'Prediccion' in data.columns:
+        data = data.drop(columns=['Prediccion'])
 
-data['Prediccion']=Y_pred
-data.head()
+    # Obtenemos la predicción correcta utilizando la función que aplica el labelencoder.
+    # Usamos una copia de data para make_prediction para no modificarla antes de la asignación final.
+    correct_prediction_label = make_prediction(data.copy(), modelo, min_max_scaler, variables, labelencoder)
 
-#Predicciones finales
-data
+    # Creamos una nueva columna para la predicción etiquetada en el DataFrame 'data'.
+    data['Prediccion'] = correct_prediction_label
 
-# Recordar medida de error del modelo
+    print(f"La predicción correcta para los datos actuales es: {correct_prediction_label}")
+else:
+    print("No hay datos en el DataFrame 'data' para realizar una predicción.")
 
-st.warning("El modelo tiene un exito del 81.3% (F1 Macro)")
+# Mostramos el DataFrame 'data' actualizado con la predicción etiquetada.
+display(data)
+
+# Recordatorio de la medida de error del modelo.
+import streamlit as st
+st.warning("El modelo tiene un éxito del 81.3% (F1 Macro)")
