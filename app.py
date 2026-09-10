@@ -97,12 +97,14 @@ st.dataframe(data.head())
 # Make prediction
 if not data.empty:
     prediction_result = make_prediction(data, modelo, min_max_scaler, variables, labelencoder)
-    st.subheader(f"Predicción de Riesgo de Ataque al Corazón: **{prediction_result}**")
-    st.warning("El modelo tiene un exito del 81.3% (F1 Macro)")
+    # The explicit prediction message and warning are removed as requested.
+    # The 'data' DataFrame with prediction column is displayed by another cell.
 else:
     st.warning("No hay datos válidos para realizar la predicción.")
 
 """# **Predicciones**"""
+
+display(data)
 
 # Re-calculando predicción usando la función `make_prediction` para demostración en el notebook.
 # Esto asume que 'data' es el DataFrame generado por la entrada manual de Streamlit o la carga de archivo.
