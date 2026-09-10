@@ -122,10 +122,3 @@ if not data.empty:
     print(f"La predicción correcta para los datos actuales es: {correct_prediction_label}")
 else:
     print("No hay datos en el DataFrame 'data' para realizar una predicción.")
-
-# Mostramos el DataFrame 'data' actualizado con la predicción etiquetada.
-display(data)
-
-# Recordatorio de la medida de error del modelo.
-import streamlit as st
-st.warning("El modelo tiene un éxito del 81.3% (F1 Macro)")
