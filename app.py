@@ -121,9 +121,11 @@ if not data.empty:
         if data_for_filters_plots.empty:
             st.warning("No hay datos disponibles para aplicar filtros o visualizaciones.")
         else:
-            # Initialize ranges with default values to prevent NameError if sliders are not created
-            age_range = (0, 100) # Default age range
-            glucose_range = (0.0, 300.0) # Default glucose range
+            # Initialize ranges with default values that are broad enough for any data,
+            # and that can be overridden by actual data mins/maxs.
+            # These are also used as fallback if a column is missing or non-numeric.
+            age_range = (1, 100) # Broad default range for age
+            glucose_range = (0.0, 300.0) # Broad default range for glucose
 
             # --- Numerical Filters ---
             st.markdown("##### Filtros Numéricos:")
@@ -131,18 +133,17 @@ if not data.empty:
 
             # Age filter
             if 'age' in data_for_filters_plots.columns and pd.api.types.is_numeric_dtype(data_for_filters_plots['age']):
-                # Drop NA values from the column before calculating min/max to ensure valid numbers
                 age_series = data_for_filters_plots['age'].dropna()
                 if not age_series.empty:
-                    min_age_val = age_series.min()
-                    max_age_val = age_series.max()
-                    if min_age_val <= max_age_val: # This condition should always be true for non-empty series
-                        min_age, max_age = int(min_age_val), int(max_age_val)
+                    min_age_val = int(age_series.min())
+                    max_age_val = int(age_series.max())
+                    if min_age_val < max_age_val: # Only create slider if there's a range
                         with num_col1:
-                            age_range = st.slider('Rango de Edad', min_age, max_age, (min_age, max_age))
-                    else:
+                            age_range = st.slider('Rango de Edad', min_age_val, max_age_val, (min_age_val, max_age_val))
+                    else: # min_age_val == max_age_val (single unique value)
                         with num_col1:
-                            st.write("Datos de 'age' inválidos para el filtro (min > max).")
+                            st.write(f"Edad: {min_age_val}")
+                            age_range = (min_age_val, max_age_val) # Set range to single value for filtering
                 else:
                     with num_col1:
                         st.write("Columna 'age' vacía o con solo valores nulos para el filtro.")
@@ -152,18 +153,17 @@ if not data.empty:
 
             # Avg Glucose Level filter
             if 'avg_glucose_level' in data_for_filters_plots.columns and pd.api.types.is_numeric_dtype(data_for_filters_plots['avg_glucose_level']):
-                # Drop NA values from the column before calculating min/max to ensure valid numbers
                 glucose_series = data_for_filters_plots['avg_glucose_level'].dropna()
                 if not glucose_series.empty:
-                    min_glucose_val = glucose_series.min()
-                    max_glucose_val = glucose_series.max()
-                    if min_glucose_val <= max_glucose_val: # This condition should always be true for non-empty series
-                        min_glucose, max_glucose = float(min_glucose_val), float(max_glucose_val)
+                    min_glucose_val = float(glucose_series.min())
+                    max_glucose_val = float(glucose_series.max())
+                    if min_glucose_val < max_glucose_val: # Only create slider if there's a range
                         with num_col2:
-                            glucose_range = st.slider('Nivel Promedio de Glucosa', min_glucose, max_glucose, (min_glucose, max_glucose))
-                    else:
+                            glucose_range = st.slider('Nivel Promedio de Glucosa', min_glucose_val, max_glucose_val, (min_glucose_val, max_glucose_val))
+                    else: # min_glucose_val == max_glucose_val
                         with num_col2:
-                            st.write("Datos de 'avg_glucose_level' inválidos para el filtro (min > max).")
+                            st.write(f"Nivel Promedio de Glucosa: {min_glucose_val}")
+                            glucose_range = (min_glucose_val, max_glucose_val) # Set range to single value for filtering
                 else:
                     with num_col2:
                         st.write("Columna 'avg_glucose_level' vacía o con solo valores nulos para el filtro.")
