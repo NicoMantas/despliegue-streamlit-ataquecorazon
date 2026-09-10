@@ -34,8 +34,6 @@ initial_columns = ['age', 'avg_glucose_level', 'hypertension', 'heart_disease', 
 # especially when running outside a live Streamlit environment or if inputs are not set.
 data = pd.DataFrame(columns=initial_columns)
 
-!pip install streamlit
-
 import streamlit as st
 import pandas as pd
 
