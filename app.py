@@ -67,11 +67,14 @@ data = pd.DataFrame(columns=initial_columns)
 
 import streamlit as st
 import pandas as pd
+import matplotlib.pyplot as plt
 
 st.title('Predicción de Posibles Ataques al Corazon')
 
 # File uploader section
 uploaded_file = st.file_uploader("Upload your CSV file for prediction", type=['csv'])
+
+data = pd.DataFrame(columns=initial_columns) # Ensure data is defined
 
 # Conditional assignment of 'data' based on user input
 if uploaded_file is not None:
@@ -99,27 +102,68 @@ if not data.empty:
     # Add the prediction result as a new column to the DataFrame
     data['Prediccion'] = prediction_result
 
-    st.dataframe(data) # Display the full data with prediction
+    # Display the full data with prediction
+    st.dataframe(data)
+
+    # --- New Filtering Section ---
+    st.markdown("---") # Separator for better UI
+    st.subheader("Filtros Interactivos y Visualización:")
+
+    # Use data.copy() to avoid SettingWithCopyWarning if original data is used later in different ways
+    data_for_filters_plots = data.copy()
+
+    # Create multiselect filters for categorical columns
+    col1, col2 = st.columns(2)
+    selected_hypertension = unique_hypertension = []
+    selected_heart_disease = unique_heart_disease = []
+    selected_ever_married = unique_ever_married = []
+    selected_smoking_status = unique_smoking_status = []
+
+    if 'hypertension' in data_for_filters_plots.columns:
+        unique_hypertension = data_for_filters_plots['hypertension'].unique().tolist()
+        with col1:
+            selected_hypertension = st.multiselect('Filtrar por Hipertensión', options=unique_hypertension, default=unique_hypertension)
+
+    if 'heart_disease' in data_for_filters_plots.columns:
+        unique_heart_disease = data_for_filters_plots['heart_disease'].unique().tolist()
+        with col1:
+            selected_heart_disease = st.multiselect('Filtrar por Enfermedad Cardiaca', options=unique_heart_disease, default=unique_heart_disease)
+
+    if 'ever_married' in data_for_filters_plots.columns:
+        unique_ever_married = data_for_filters_plots['ever_married'].unique().tolist()
+        with col2:
+            selected_ever_married = st.multiselect('Filtrar por Casado', options=unique_ever_married, default=unique_ever_married)
+
+    if 'smoking_status' in data_for_filters_plots.columns:
+        unique_smoking_status = data_for_filters_plots['smoking_status'].unique().tolist()
+        with col2:
+            selected_smoking_status = st.multiselect('Filtrar por Estado Fumador', options=unique_smoking_status, default=unique_smoking_status)
+
+
+    # Apply filters
+    filtered_data = data_for_filters_plots.copy()
+    if selected_hypertension:
+        filtered_data = filtered_data[filtered_data['hypertension'].isin(selected_hypertension)]
+    if selected_heart_disease:
+        filtered_data = filtered_data[filtered_data['heart_disease'].isin(selected_heart_disease)]
+    if selected_ever_married:
+        filtered_data = filtered_data[filtered_data['ever_married'].isin(selected_ever_married)]
+    if selected_smoking_status:
+        filtered_data = filtered_data[filtered_data['smoking_status'].isin(selected_smoking_status)]
+
+    st.subheader("Resultados Filtrados:")
+    if not filtered_data.empty:
+        st.dataframe(filtered_data)
+        # --- New Visualization Section ---
+        if len(filtered_data) > 1: # Only show summary if more than one row after filtering
+            st.subheader("Resumen de Predicciones Filtradas:")
+            prediction_counts = filtered_data['Prediccion'].value_counts().reset_index()
+            prediction_counts.columns = ['Prediccion', 'Count']
+            st.bar_chart(prediction_counts, x='Prediccion', y='Count')
+        else: # len(filtered_data) == 1
+            st.write("Solo hay una entrada filtrada para la predicción, no se muestra un resumen gráfico.")
+    else:
+        st.write("No hay entradas que coincidan con los filtros seleccionados.")
+
 else:
     st.warning("No hay datos válidos para realizar la predicción.")
-
-"""# **Predicciones**"""
-
-# Re-calculando predicción usando la función `make_prediction` para demostración en el notebook.
-# Esto asume que 'data' es el DataFrame generado por la entrada manual de Streamlit o la carga de archivo.
-if not data.empty:
-    # Eliminamos la columna 'Prediccion' antigua si existe en el DataFrame 'data'.
-    # La columna 'Prediccion' se añadió en un paso anterior con valores 0/1 y ya no es necesaria.
-    if 'Prediccion' in data.columns:
-        data = data.drop(columns=['Prediccion'])
-
-    # Obtenemos la predicción correcta utilizando la función que aplica el labelencoder.
-    # Usamos una copia de data para make_prediction para no modificarla antes de la asignación final.
-    correct_prediction_label = make_prediction(data.copy(), modelo, min_max_scaler, variables, labelencoder)
-
-    # Creamos una nueva columna para la predicción etiquetada en el DataFrame 'data'.
-    data['Prediccion'] = correct_prediction_label
-
-    print(f"La predicción correcta para los datos actuales es: {correct_prediction_label}")
-else:
-    print("No hay datos en el DataFrame 'data' para realizar una predicción.")
