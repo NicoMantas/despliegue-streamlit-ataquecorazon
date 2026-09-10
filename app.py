@@ -117,90 +117,155 @@ if not data.empty:
         # Use data.copy() to avoid SettingWithCopyWarning if original data is used later in different ways
         data_for_filters_plots = data.copy()
 
-        # --- Numerical Filters ---
-        st.markdown("##### Filtros Numéricos:")
-        num_col1, num_col2 = st.columns(2)
-
-        # Get min/max for sliders; data_for_filters_plots should not be empty here if prediction was successful.
-        min_age, max_age = int(data_for_filters_plots['age'].min()), int(data_for_filters_plots['age'].max())
-        with num_col1:
-            age_range = st.slider('Rango de Edad', min_age, max_age, (min_age, max_age))
-
-        min_glucose, max_glucose = float(data_for_filters_plots['avg_glucose_level'].min()), float(data_for_filters_plots['avg_glucose_level'].max())
-        with num_col2:
-            glucose_range = st.slider('Nivel Promedio de Glucosa', min_glucose, max_glucose, (min_glucose, max_glucose))
-
-        st.markdown("##### Filtros Categóricos:")
-        # Create multiselect filters for categorical columns
-        col1, col2 = st.columns(2)
-        selected_hypertension = []
-        selected_heart_disease = []
-        selected_ever_married = []
-        selected_smoking_status = []
-
-        if 'hypertension' in data_for_filters_plots.columns:
-            unique_hypertension = data_for_filters_plots['hypertension'].unique().tolist()
-            with col1:
-                selected_hypertension = st.multiselect('Filtrar por Hipertensión', options=unique_hypertension, default=unique_hypertension)
-
-        if 'heart_disease' in data_for_filters_plots.columns:
-            unique_heart_disease = data_for_filters_plots['heart_disease'].unique().tolist()
-            with col1:
-                selected_heart_disease = st.multiselect('Filtrar por Enfermedad Cardiaca', options=unique_heart_disease, default=unique_heart_disease)
-
-        if 'ever_married' in data_for_filters_plots.columns:
-            unique_ever_married = data_for_filters_plots['ever_married'].unique().tolist()
-            with col2:
-                selected_ever_married = st.multiselect('Filtrar por Casado', options=unique_ever_married, default=unique_ever_married)
-
-        if 'smoking_status' in data_for_filters_plots.columns:
-            unique_smoking_status = data_for_filters_plots['smoking_status'].unique().tolist()
-            with col2:
-                selected_smoking_status = st.multiselect('Filtrar por Estado Fumador', options=unique_smoking_status, default=unique_smoking_status)
-
-
-        # Apply filters
-        filtered_data = data_for_filters_plots.copy()
-
-        # Apply numerical filters
-        filtered_data = filtered_data[
-            (filtered_data['age'] >= age_range[0]) & (filtered_data['age'] <= age_range[1]) &
-            (filtered_data['avg_glucose_level'] >= glucose_range[0]) & (filtered_data['avg_glucose_level'] <= glucose_range[1])
-        ]
-
-        # Apply categorical filters
-        if selected_hypertension:
-            filtered_data = filtered_data[filtered_data['hypertension'].isin(selected_hypertension)]
-        if selected_heart_disease:
-            filtered_data = filtered_data[filtered_data['heart_disease'].isin(selected_heart_disease)]
-        if selected_ever_married:
-            filtered_data = filtered_data[filtered_data['ever_married'].isin(selected_ever_married)]
-        if selected_smoking_status:
-            filtered_data = filtered_data[filtered_data['smoking_status'].isin(selected_smoking_status)]
-
-        st.subheader("Resultados Filtrados:")
-        if not filtered_data.empty:
-            st.dataframe(filtered_data)
-
-            # --- Download Button ---
-            csv = filtered_data.to_csv(index=False).encode('utf-8')
-            st.download_button(
-                label="Descargar datos filtrados como CSV",
-                data=csv,
-                file_name='datos_prediccion_filtrados.csv',
-                mime='text/csv',
-            )
-
-            # --- Visualization Section ---
-            if len(filtered_data) > 1: # Only show summary if more than one row after filtering
-                st.subheader("Resumen de Predicciones Filtradas:")
-                prediction_counts = filtered_data['Prediccion'].value_counts().reset_index()
-                prediction_counts.columns = ['Prediccion', 'Count']
-                st.bar_chart(prediction_counts, x='Prediccion', y='Count')
-            else: # len(filtered_data) == 1
-                st.write("Solo hay una entrada filtrada para la predicción, no se muestra un resumen gráfico.")
+        # Check if data_for_filters_plots is empty before proceeding with filters and plots
+        if data_for_filters_plots.empty:
+            st.warning("No hay datos disponibles para aplicar filtros o visualizaciones.")
         else:
-            st.write("No hay entradas que coincidan con los filtros seleccionados.")
+            # Initialize ranges with default values to prevent NameError if sliders are not created
+            age_range = (0, 100) # Default age range
+            glucose_range = (0.0, 300.0) # Default glucose range
+
+            # --- Numerical Filters ---
+            st.markdown("##### Filtros Numéricos:")
+            num_col1, num_col2 = st.columns(2)
+
+            # Age filter
+            if 'age' in data_for_filters_plots.columns and pd.api.types.is_numeric_dtype(data_for_filters_plots['age']):
+                # Drop NA values from the column before calculating min/max to ensure valid numbers
+                age_series = data_for_filters_plots['age'].dropna()
+                if not age_series.empty:
+                    min_age_val = age_series.min()
+                    max_age_val = age_series.max()
+                    if min_age_val <= max_age_val: # This condition should always be true for non-empty series
+                        min_age, max_age = int(min_age_val), int(max_age_val)
+                        with num_col1:
+                            age_range = st.slider('Rango de Edad', min_age, max_age, (min_age, max_age))
+                    else:
+                        with num_col1:
+                            st.write("Datos de 'age' inválidos para el filtro (min > max).")
+                else:
+                    with num_col1:
+                        st.write("Columna 'age' vacía o con solo valores nulos para el filtro.")
+            else:
+                with num_col1:
+                    st.write("Columna 'age' no encontrada o no numérica.")
+
+            # Avg Glucose Level filter
+            if 'avg_glucose_level' in data_for_filters_plots.columns and pd.api.types.is_numeric_dtype(data_for_filters_plots['avg_glucose_level']):
+                # Drop NA values from the column before calculating min/max to ensure valid numbers
+                glucose_series = data_for_filters_plots['avg_glucose_level'].dropna()
+                if not glucose_series.empty:
+                    min_glucose_val = glucose_series.min()
+                    max_glucose_val = glucose_series.max()
+                    if min_glucose_val <= max_glucose_val: # This condition should always be true for non-empty series
+                        min_glucose, max_glucose = float(min_glucose_val), float(max_glucose_val)
+                        with num_col2:
+                            glucose_range = st.slider('Nivel Promedio de Glucosa', min_glucose, max_glucose, (min_glucose, max_glucose))
+                    else:
+                        with num_col2:
+                            st.write("Datos de 'avg_glucose_level' inválidos para el filtro (min > max).")
+                else:
+                    with num_col2:
+                        st.write("Columna 'avg_glucose_level' vacía o con solo valores nulos para el filtro.")
+            else:
+                with num_col2:
+                    st.write("Columna 'avg_glucose_level' no encontrada o no numérica.")
+
+            st.markdown("##### Filtros Categóricos:")
+            # Create multiselect filters for categorical columns
+            col1, col2 = st.columns(2)
+            selected_hypertension = []
+            selected_heart_disease = []
+            selected_ever_married = []
+            selected_smoking_status = []
+
+            # Hypertension filter
+            if 'hypertension' in data_for_filters_plots.columns:
+                unique_hypertension = data_for_filters_plots['hypertension'].dropna().unique().tolist()
+                if unique_hypertension: # Check if list is not empty
+                    with col1:
+                        selected_hypertension = st.multiselect('Filtrar por Hipertensión', options=unique_hypertension, default=unique_hypertension)
+                else:
+                    with col1:
+                        st.write("No hay datos válidos de 'Hipertensión' para filtrar.")
+
+            # Heart Disease filter
+            if 'heart_disease' in data_for_filters_plots.columns:
+                unique_heart_disease = data_for_filters_plots['heart_disease'].dropna().unique().tolist()
+                if unique_heart_disease:
+                    with col1:
+                        selected_heart_disease = st.multiselect('Filtrar por Enfermedad Cardiaca', options=unique_heart_disease, default=unique_heart_disease)
+                else:
+                    with col1:
+                        st.write("No hay datos válidos de 'Enfermedad Cardiaca' para filtrar.")
+
+            # Ever Married filter
+            if 'ever_married' in data_for_filters_plots.columns:
+                unique_ever_married = data_for_filters_plots['ever_married'].dropna().unique().tolist()
+                if unique_ever_married:
+                    with col2:
+                        selected_ever_married = st.multiselect('Filtrar por Casado', options=unique_ever_married, default=unique_ever_married)
+                else:
+                    with col2:
+                        st.write("No hay datos válidos de 'Casado' para filtrar.")
+
+            # Smoking Status filter
+            if 'smoking_status' in data_for_filters_plots.columns:
+                unique_smoking_status = data_for_filters_plots['smoking_status'].dropna().unique().tolist()
+                if unique_smoking_status:
+                    with col2:
+                        selected_smoking_status = st.multiselect('Filtrar por Estado Fumador', options=unique_smoking_status, default=unique_smoking_status)
+                else:
+                    with col2:
+                        st.write("No hay datos válidos de 'Estado Fumador' para filtrar.")
+
+
+            # Apply filters
+            filtered_data = data_for_filters_plots.copy()
+
+            # Apply numerical filters (only if corresponding columns exist)
+            if 'age' in filtered_data.columns:
+                filtered_data = filtered_data[
+                    (filtered_data['age'] >= age_range[0]) & (filtered_data['age'] <= age_range[1])
+                ]
+            if 'avg_glucose_level' in filtered_data.columns:
+                 filtered_data = filtered_data[
+                    (filtered_data['avg_glucose_level'] >= glucose_range[0]) & (filtered_data['avg_glucose_level'] <= glucose_range[1])
+                ]
+
+            # Apply categorical filters
+            if selected_hypertension:
+                filtered_data = filtered_data[filtered_data['hypertension'].isin(selected_hypertension)]
+            if selected_heart_disease:
+                filtered_data = filtered_data[filtered_data['heart_disease'].isin(selected_heart_disease)]
+            if selected_ever_married:
+                filtered_data = filtered_data[filtered_data['ever_married'].isin(selected_ever_married)]
+            if selected_smoking_status:
+                filtered_data = filtered_data[filtered_data['smoking_status'].isin(selected_smoking_status)]
+
+            st.subheader("Resultados Filtrados:")
+            if not filtered_data.empty:
+                st.dataframe(filtered_data)
+
+                # --- Download Button ---
+                csv = filtered_data.to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    label="Descargar datos filtrados como CSV",
+                    data=csv,
+                    file_name='datos_prediccion_filtrados.csv',
+                    mime='text/csv',
+                )
+
+                # --- Visualization Section ---
+                if len(filtered_data) > 1: # Only show summary if more than one row after filtering
+                    st.subheader("Resumen de Predicciones Filtradas:")
+                    prediction_counts = filtered_data['Prediccion'].value_counts().reset_index()
+                    prediction_counts.columns = ['Prediccion', 'Count']
+                    st.bar_chart(prediction_counts, x='Prediccion', y='Count')
+                else: # len(filtered_data) == 1
+                    st.write("Solo hay una entrada filtrada para la predicción, no se muestra un resumen gráfico.")
+            else:
+                st.write("No hay entradas que coincidan con los filtros seleccionados.")
 
 else:
     st.warning("No hay datos válidos para realizar la predicción.")
